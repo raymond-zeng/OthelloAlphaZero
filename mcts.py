@@ -34,7 +34,8 @@ class mcts_node:
         actions = self.children.keys()
         visit_counts = np.array([child.visits for child in self.children.values()])
         if temperature == 0:
-            return max(actions, key=lambda a: visit_counts[self.children[a].visits])
+            action = max(visit_counts.items(), key=lambda x: x[1])[0]
+            return action
         else:
             probabilities = visit_counts ** (1 / temperature)
             probabilities /= np.sum(probabilities)
@@ -51,3 +52,48 @@ class mcts_node:
                 best_child = child
                 best_action = action
         return best_child, best_action
+
+class mcts:
+
+    def __init__(self, game, model, num_simulations=1000, exploration_weight=1.0):
+        self.game = game
+        self.model = model
+        self.num_simulations = num_simulations
+        self.exploration_weight = exploration_weight
+    
+    def search(self, state, to_play):
+        root = mcts_node(state, to_play, 0, parent=None)
+        valid_moves = self.game.get_valid_moves(state, to_play) 
+        action_probs, value = self.model.predict(state, to_play)
+        action_probs = action_probs * valid_moves
+        action_probs /= np.sum(action_probs)
+        root.expand(zip(action_probs, valid_moves))
+
+        for _ in range(self.num_simulations):
+            node = root
+            path = []
+            
+            while node.children:
+                node, action = node.select_child(self.exploration_weight)
+                path.append((node, action))
+            leaf_state = node.state
+            cannonical_state = self.game.canonicalize(leaf_state, node.to_play)
+
+            if not self.game.is_terminal(cannonical_state):
+                action_probs, value = self.model.predict(cannonical_state, node.to_play)
+                valid_moves = self.game.get_valid_moves(cannonical_state, node.to_play)
+                action_probs = action_probs * valid_moves
+                action_probs /= np.sum(action_probs)
+                node.expand(zip(action_probs, valid_moves))
+            
+            self.backpropagate(path, value, node.to_play)
+        return root    
+
+
+    def backpropagate(self, path, value, to_play):
+        for node, action in reversed(path):
+            node.visits += 1
+            if to_play == node.to_play:
+                node.results += value
+            else:
+                node.results -= value
