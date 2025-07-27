@@ -13,7 +13,7 @@ class OthelloState:
     DIRECTIONS = [(0, 1), (1, 0), (0, -1), (-1, 0), 
                   (1, 1), (1, -1), (-1, 1), (-1, -1)]
 
-    def __init__(self, board, to_play):
+    def __init__(self, board=None, to_play=-1):
         """
         Initializes the state.
 
@@ -21,7 +21,14 @@ class OthelloState:
             board: Can be an 8x8 NumPy array, a 64-char string, or a PyTorch tensor.
             to_play (int): The player whose turn it is (1 or -1).
         """
-        if isinstance(board, str):
+        if board is None:
+            # Create the standard starting board if none is provided
+            self.board = np.zeros((self.BOARD_SIZE, self.BOARD_SIZE), dtype=np.int8)
+            self.board[3, 3] = 1  # 'o'
+            self.board[4, 4] = 1  # 'o'
+            self.board[3, 4] = -1 # 'x'
+            self.board[4, 3] = -1 # 'x'
+        elif isinstance(board, str):
             self.board = self._from_str(board)
         elif isinstance(board, torch.Tensor):
             # Assuming a (C, H, W) or (H, W) tensor
