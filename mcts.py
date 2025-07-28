@@ -34,11 +34,11 @@ class MCTSNode:
         visit_counts = np.array([child.visits for child in self.children.values()])
         if temperature == 0:
             action = actions[np.argmax(visit_counts)]
-            return action
+            return action, probabilities
         else:
             probabilities = visit_counts ** (1 / temperature)
             probabilities /= np.sum(probabilities)
-            return np.random.choice(actions, p=probabilities)
+            return np.random.choice(actions, p=probabilities), probabilities
     
     def select_child(self, exploration_weight=1.0):
         best_score = -np.inf
@@ -84,10 +84,10 @@ class MCTS:
                 node.expand(action_probs)
             
             self.backpropagate(node, value)
-        action = root.select_action(temperature=0.001, exploration_weight=self.exploration_weight)
+        action, probs = root.select_action(temperature=0.001, exploration_weight=self.exploration_weight)
         new_node = root.children[action]
         new_node.parent = None
-        return action, new_node
+        return action, new_node, probs
 
     def backpropagate(self, node, value):
         while node is not None:
