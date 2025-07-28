@@ -6,6 +6,8 @@ from collections import deque
 from pickle import Pickler, Unpickler
 from random import shuffle
 from arena import Arena
+from OthelloNNet import OthelloResNet
+from NNet import NNetWrapper
 
 class Coach:
 
@@ -62,7 +64,7 @@ class Coach:
 
             arena = Arena(pmcts, self.mcts)
             prev_wins, cur_wins, draws = arena.play_games(num_games=100, verbose=True)
-            if cur_wins + draws >=`` 55:
+            if cur_wins + draws >= 55:
                 # Save new model
                 self.model.save_checkpoint(self.checkpoint_dir, filename=f"checkpoint_iter_{i}.pth.tar")
                 self.model.save_checkpoint(self.checkpoint_dir, filename="best.pth.tar")
@@ -86,3 +88,16 @@ class Coach:
         with open(f"{folder}/train_examples_iter_{iteration}.pkl", 'rb') as f:
             self.trainExampleHistory = Unpickler(f).load()
         f.close()
+
+def main():
+    res_net = OthelloResNet(num_res_blocks=10, num_hidden_channels=128)
+    nnet_wrapper = NNetWrapper(model=res_net)
+    coach = Coach(model=nnet_wrapper, nnet_args={
+        'num_simulations': 1000,
+        'exploration_weight': 3.0,
+        'checkpoint_dir': './checkpoints'
+    })
+    coach.learn()
+
+if __name__ == "__main__":
+    main()
