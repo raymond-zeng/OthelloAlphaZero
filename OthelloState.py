@@ -71,12 +71,27 @@ class OthelloState:
         self._cached_valid_moves = list(set(valid_moves)) # Remove duplicates
         return self._cached_valid_moves
 
+    def get_valid_moves_vector(self) -> np.ndarray:
+        """
+        Returns a binary vector of valid moves for the current player.
+        The vector has 64 elements, where 1 indicates a valid move.
+        """
+        valid_moves = self.get_valid_moves()
+        valid_moves_vector = np.zeros(self.BOARD_SIZE * self.BOARD_SIZE + 1, dtype=np.int8)
+        for move in valid_moves:
+            valid_moves_vector[move] = 1
+        if not valid_moves: valid_moves_vector[-1] = 1 # Indicates a pass move
+        return valid_moves_vector
+
     def apply_action(self, action: int):
         """
         Applies an action and returns a *new* OthelloState for the next turn.
         """
         new_board = self.board.copy()
         opponent = -self.to_play
+        if action == self.BOARD_SIZE * self.BOARD_SIZE:
+            # Pass move
+            return OthelloState(new_board, -self.to_play)
         r, c = action // self.BOARD_SIZE, action % self.BOARD_SIZE
 
         new_board[r, c] = self.to_play
@@ -142,7 +157,7 @@ class OthelloState:
         char_map = {1: 'o', -1: 'x', 0: '.'}
         return "".join([char_map[piece] for piece in self.board.flatten()])
 
-    def to_tensor(self, canonical=True, device='cpu') -> torch.Tensor:
+    def to_tensor(self, canonical=True, device='cuda') -> torch.Tensor:
         """
         Returns the board as a 3-channel PyTorch tensor for the neural network.
         
