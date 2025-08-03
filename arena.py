@@ -106,8 +106,7 @@ class MCTSPlayer:
         self.mcts = MCTS(model=model, num_simulations=num_simulations)
 
     def play(self, state):
-        print("MCTS is thinking...")
         canonical_state = state.get_canonical_board()
         canonical_state = OthelloState(canonical_state, state.to_play if state.to_play == 1 else -state.to_play)
-        action, _ = self.mcts.search(canonical_state)
+        action, _, _ = self.mcts.search(canonical_state)
         return action

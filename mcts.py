@@ -1,5 +1,7 @@
 import numpy as np
 
+from OthelloState import OthelloState
+
 def ucb_score(parent, child, exploration_weight=1.0):
     prior_score = exploration_weight * child.prior * np.sqrt(parent.visits) / (1 + child.visits)
     if child.visits == 0:
@@ -27,13 +29,16 @@ class MCTSNode:
             return 0
         return self.results / self.visits
     
-    def select_action(self, temperature=0.001, exploration_weight=1.0):
+    def select_action(self, temperature=0.7, exploration_weight=1.0):
         if len(self.children) == 0:
             return None
-        actions = self.children.keys()
+        actions = list(self.children.keys())
         visit_counts = np.array([child.visits for child in self.children.values()])
         if temperature == 0:
-            action = actions[np.argmax(visit_counts)]
+            best_action_idx = np.argmax(visit_counts)
+            action = actions[best_action_idx]
+            probabilities = np.zeros_like(visit_counts, dtype=float)
+            probabilities[best_action_idx] = 1.0
             return action, probabilities
         else:
             probabilities = visit_counts ** (1 / temperature)
@@ -68,11 +73,13 @@ class MCTS:
             while node.children:
                 node, action = node.select_child(self.exploration_weight)
             leaf_state = node.state
-            cannonical_leaf_state = leaf_state.to_canonical_form()
-            
+            cannonical_leaf_board = leaf_state.get_canonical_board()
+            cannonical_leaf_state = OthelloState(cannonical_leaf_board, 1)
+            cannonical_leaf_board_tensor = cannonical_leaf_state.to_tensor(canonical=True, device='cuda')
+
             if not leaf_state.is_terminal():
-                probs, value = self.model.predict(cannonical_leaf_state)
-                valid_moves = leaf_state.get_valid_moves()
+                probs, value = self.model.predict(cannonical_leaf_board_tensor)
+                valid_moves = leaf_state.get_valid_moves_vector()
                 if node == root:
                     epsilon = 0.25
                     alpha = 0.3
@@ -82,9 +89,10 @@ class MCTS:
                 probs /= np.sum(probs)
                 action_probs = [(p, i) for i, p in enumerate(probs) if p > 0]
                 node.expand(action_probs)
-            
+            else:
+                value = leaf_state.get_game_result()
             self.backpropagate(node, value)
-        action, probs = root.select_action(temperature=0.001, exploration_weight=self.exploration_weight)
+        action, probs = root.select_action(temperature=0.7, exploration_weight=self.exploration_weight)
         new_node = root.children[action]
         new_node.parent = None
         return action, new_node, probs
